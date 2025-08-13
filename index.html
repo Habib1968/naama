@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Résolveur d'équations (1 inconnue)</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.0/lib/browser/math.js"></script>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --panel: #121821;
+        --muted: #90a3b3;
+        --text: #e6eef5;
+        --accent: #4cc9f0;
+        --accent-2: #81e6d9;
+        --danger: #ff6b6b;
+        --warning: #ffd166;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(180deg, #0b0f14, #0a1016 30%, #0b1119);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        line-height: 1.55;
+      }
+      .container {
+        max-width: 900px;
+        margin: 32px auto;
+        padding: 0 16px;
+      }
+      .card {
+        background: radial-gradient(1200px 400px at 10% -10%, rgba(76, 201, 240, 0.08), transparent 60%),
+                    radial-gradient(1200px 400px at 110% -10%, rgba(129, 230, 217, 0.08), transparent 60%),
+                    var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      }
+      h1 {
+        font-size: 1.8rem;
+        margin: 0 0 12px 0;
+        letter-spacing: 0.2px;
+      }
+      p.sub {
+        color: var(--muted);
+        margin-top: 0;
+        margin-bottom: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      @media (min-width: 720px) {
+        .grid.two {
+          grid-template-columns: 1fr 1fr;
+        }
+        .grid.three {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+      }
+      label {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 4px;
+        display: inline-block;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+      }
+      input[type="text"], input[type="number"] {
+        background: #0e141d;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 12px 14px;
+        outline: none;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+      input::placeholder { color: #6f8193; }
+      input:focus {
+        border-color: rgba(129, 230, 217, 0.45);
+        box-shadow: 0 0 0 4px rgba(129, 230, 217, 0.12);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .btn {
+        appearance: none;
+        border: 0;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #001219;
+        font-weight: 800;
+        padding: 12px 16px;
+        border-radius: 12px;
+        cursor: pointer;
+        letter-spacing: 0.3px;
+        box-shadow: 0 10px 30px rgba(76, 201, 240, 0.2);
+        transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+        white-space: nowrap;
+      }
+      .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 34px rgba(76, 201, 240, 0.26); }
+      .btn:active { transform: translateY(0); box-shadow: 0 8px 20px rgba(76, 201, 240, 0.2); }
+      .btn.secondary {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: none;
+      }
+      .help {
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+      .examples {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .pill {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.9rem;
+      }
+      .result-card {
+        margin-top: 16px;
+        background: #0e141d;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .result-title { font-weight: 700; margin-bottom: 6px; }
+      .error { color: var(--danger); font-weight: 600; }
+      .warn { color: var(--warning); }
+      .solutions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      @media (min-width: 560px) {
+        .solutions { grid-template-columns: 1fr 1fr; }
+      }
+      .solution-item {
+        background: rgba(129, 230, 217, 0.06);
+        border: 1px solid rgba(129, 230, 217, 0.18);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      footer { margin-top: 24px; color: var(--muted); font-size: 0.9rem; }
+      a { color: var(--accent-2); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>Résoudre une équation (1 inconnue)</h1>
+        <p class="sub">Saisissez une équation en <strong>x</strong>. Exemple : <em>2x + 3 = 7</em>, <em>x^2 - 5x + 6 = 0</em>, <em>sin(x) = 0.5</em>.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="equation">Équation</label>
+            <input id="equation" type="text" placeholder="Ex : 2x + 3 = 7" />
+            <div class="examples">
+              <button class="pill" data-example="2x + 3 = 7">2x + 3 = 7</button>
+              <button class="pill" data-example="x^2 - 5x + 6 = 0">x^2 - 5x + 6 = 0</button>
+              <button class="pill" data-example="sin(x) = 0.5">sin(x) = 0.5</button>
+              <button class="pill" data-example="exp(x) = 20">exp(x) = 20</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid two" style="margin-top: 12px;">
+          <div class="field">
+            <label for="minX">Minimum (x min)</label>
+            <input id="minX" type="number" step="any" value="-100" />
+          </div>
+          <div class="field">
+            <label for="maxX">Maximum (x max)</label>
+            <input id="maxX" type="number" step="any" value="100" />
+          </div>
+        </div>
+
+        <div class="grid three" style="margin-top: 12px;">
+          <div class="field">
+            <label for="step">Pas d'échantillonnage</label>
+            <input id="step" type="number" step="any" value="0.5" />
+          </div>
+          <div class="field">
+            <label for="tolerance">Tolérance</label>
+            <input id="tolerance" type="number" step="any" value="1e-7" />
+          </div>
+          <div class="field">
+            <label for="maxIterations">Itérations max</label>
+            <input id="maxIterations" type="number" step="1" value="100" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 16px;">
+          <button id="solveBtn" class="btn">Résoudre</button>
+          <button id="clearBtn" class="btn secondary">Effacer</button>
+          <div class="help">Fonctions : sin, cos, tan, exp, log, sqrt • Puissance : <code>^</code></div>
+        </div>
+
+        <div id="output" class="result-card" style="display: none;">
+          <div id="message" class="result-title"></div>
+          <div id="solutions" class="solutions"></div>
+          <div id="debug" class="help" style="margin-top: 12px;"></div>
+        </div>
+      </div>
+
+      <footer>
+        Conseil : si votre équation est polynomiale, pensez à réduire/normaliser avant. Pour les fonctions générales, on utilise une recherche par intervalles avec bissection.
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        const $ = (id) => document.getElementById(id);
+        const equationInput = $("equation");
+        const minXInput = $("minX");
+        const maxXInput = $("maxX");
+        const stepInput = $("step");
+        const toleranceInput = $("tolerance");
+        const maxIterationsInput = $("maxIterations");
+        const solveBtn = $("solveBtn");
+        const clearBtn = $("clearBtn");
+        const output = $("output");
+        const message = $("message");
+        const solutionsContainer = $("solutions");
+        const debug = $("debug");
+
+        // Examples pills behavior
+        document.querySelectorAll('.pill[data-example]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            equationInput.value = btn.getAttribute('data-example');
+          });
+        });
+
+        clearBtn.addEventListener('click', () => {
+          equationInput.value = '';
+          solutionsContainer.innerHTML = '';
+          output.style.display = 'none';
+          message.textContent = '';
+          debug.textContent = '';
+        });
+
+        solveBtn.addEventListener('click', () => {
+          trySolve();
+        });
+
+        function showMessage(html, type = 'info') {
+          output.style.display = 'block';
+          message.innerHTML = html;
+          message.className = 'result-title' + (type === 'error' ? ' error' : (type === 'warn' ? ' warn' : ''));
+        }
+
+        function createFunctionFromEquation(equationText) {
+          if (!equationText || !equationText.trim()) {
+            throw new Error("Veuillez saisir une équation.");
+          }
+
+          const normalized = equationText
+            .replace(/\s+/g, '')
+            .replace(/,/g, '.') // décimales françaises -> point
+            .replace(/π/gi, 'pi') // symbole pi
+            .replace(/([0-9])x/gi, '$1*x') // 2x => 2*x
+            .replace(/\)x/gi, ')*x') // )x => )*x
+            .replace(/([0-9])\(/g, '$1*(') // 2( => 2*(
+            .replace(/x\(/gi, 'x*(') // x( => x*(
+            .replace(/\)\(/g, ')*('); // )( => )*(
+
+          const parts = normalized.split('=');
+          if (parts.length > 2) {
+            throw new Error("Plus d'un signe '=' détecté.");
+          }
+
+          const leftStr = parts[0];
+          const rightStr = parts.length === 2 ? parts[1] : '0';
+
+          let leftExpr, rightExpr, compiledLeft, compiledRight;
+          try {
+            leftExpr = math.parse(leftStr);
+            rightExpr = math.parse(rightStr);
+            compiledLeft = leftExpr.compile();
+            compiledRight = rightExpr.compile();
+          } catch (err) {
+            throw new Error("Expression invalide : " + (err && err.message ? err.message : String(err)));
+          }
+
+          const f = (x) => {
+            const scope = { x };
+            const l = compiledLeft.evaluate(scope);
+            const r = compiledRight.evaluate(scope);
+            if (!isFinite(l) || !isFinite(r)) return NaN;
+            const value = l - r;
+            return Number.isFinite(value) ? value : NaN;
+          };
+
+          return f;
+        }
+
+        function bracketScan(f, minX, maxX, step) {
+          const brackets = [];
+          let previousX = minX;
+          let previousY = f(previousX);
+
+          const pushRoot = (x) => {
+            brackets.push({ type: 'root', x });
+          };
+
+          if (previousY === 0) pushRoot(previousX);
+
+          for (let x = minX + step; x <= maxX + 1e-12; x += step) {
+            const y = f(x);
+            if (Number.isNaN(previousY) || Number.isNaN(y)) {
+              previousX = x;
+              previousY = y;
+              continue;
+            }
+            if (y === 0) {
+              pushRoot(x);
+            }
+            if (previousY === 0) {
+              previousX = x;
+              previousY = y;
+              continue;
+            }
+            if (previousY * y < 0) {
+              const a = Math.min(previousX, x);
+              const b = Math.max(previousX, x);
+              brackets.push({ type: 'bracket', a, b });
+            }
+            previousX = x;
+            previousY = y;
+          }
+          return brackets;
+        }
+
+        function bisection(f, a, b, tol, maxIter) {
+          let fa = f(a);
+          let fb = f(b);
+          if (!Number.isFinite(fa) || !Number.isFinite(fb)) return null;
+          if (fa === 0) return a;
+          if (fb === 0) return b;
+          if (fa * fb > 0) return null; // no sign change
+
+          let left = a;
+          let right = b;
+          let mid = (left + right) / 2;
+          let fm = f(mid);
+          let iter = 0;
+
+          while (iter < maxIter && Math.abs(right - left) > tol) {
+            if (!Number.isFinite(fm)) return null;
+            if (fm === 0) return mid;
+            if (fa * fm < 0) {
+              right = mid;
+              fb = fm;
+            } else {
+              left = mid;
+              fa = fm;
+            }
+            mid = (left + right) / 2;
+            fm = f(mid);
+            iter += 1;
+          }
+          return mid;
+        }
+
+        function deduplicateSorted(values, eps) {
+          const result = [];
+          for (const v of values.sort((a, b) => a - b)) {
+            if (result.length === 0 || Math.abs(v - result[result.length - 1]) > eps) {
+              result.push(v);
+            }
+          }
+          return result;
+        }
+
+        function trySolve() {
+          solutionsContainer.innerHTML = '';
+          debug.textContent = '';
+
+          // Read inputs
+          const equationText = equationInput.value.trim();
+          const minX = Number(minXInput.value);
+          const maxX = Number(maxXInput.value);
+          const step = Math.abs(Number(stepInput.value));
+          const tolerance = Math.abs(Number(toleranceInput.value));
+          const maxIterations = Math.max(10, Math.floor(Number(maxIterationsInput.value)) || 100);
+
+          if (!isFinite(minX) || !isFinite(maxX) || minX >= maxX) {
+            showMessage("Veuillez fournir un intervalle valide [x min, x max].", 'error');
+            return;
+          }
+          if (!isFinite(step) || step <= 0) {
+            showMessage("Pas d'échantillonnage invalide.", 'error');
+            return;
+          }
+          if (!isFinite(tolerance) || tolerance <= 0) {
+            showMessage("Tolérance invalide.", 'error');
+            return;
+          }
+
+          let f;
+          try {
+            f = createFunctionFromEquation(equationText);
+          } catch (err) {
+            showMessage(err.message || String(err), 'error');
+            return;
+          }
+
+          // Scan for brackets and exact zeros
+          const brackets = bracketScan(f, minX, maxX, step);
+          const rawRoots = [];
+
+          for (const item of brackets) {
+            if (item.type === 'root') {
+              rawRoots.push(item.x);
+            } else if (item.type === 'bracket') {
+              const root = bisection(f, item.a, item.b, tolerance, maxIterations);
+              if (root !== null && Number.isFinite(root)) {
+                rawRoots.push(root);
+              }
+            }
+          }
+
+          const roots = deduplicateSorted(rawRoots, Math.max(tolerance * 10, 1e-9));
+
+          if (roots.length === 0) {
+            showMessage("Aucune solution trouvée sur l'intervalle indiqué.", 'warn');
+            solutionsContainer.innerHTML = '';
+          } else {
+            showMessage(`${roots.length} solution(s) trouvée(s) sur l'intervalle.`);
+            for (const r of roots) {
+              const y = f(r);
+              const item = document.createElement('div');
+              item.className = 'solution-item';
+              item.textContent = `x ≈ ${r.toPrecision(12)}  (f(x) ≈ ${Number.isFinite(y) ? y.toExponential(3) : 'NaN'})`;
+              solutionsContainer.appendChild(item);
+            }
+          }
+
+          output.style.display = 'block';
+
+          const samplePoints = [];
+          const n = Math.min(50, Math.ceil((maxX - minX) / step));
+          const actualStep = (maxX - minX) / n;
+          for (let i = 0; i <= n; i++) {
+            const x = minX + i * actualStep;
+            const y = f(x);
+            if (Number.isFinite(y)) samplePoints.push([x, y]);
+          }
+          debug.textContent = `Échantillons f(x)=LHS-RHS: ${samplePoints.slice(0, 12).map(([x, y]) => `(${x.toFixed(3)}, ${y.toExponential(2)})`).join(' ')}${samplePoints.length > 12 ? ' …' : ''}`;
+        }
+
+        // Enter key to solve
+        equationInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') trySolve();
+        });
+      })();
+    </script>
+  </body>
+</html>
